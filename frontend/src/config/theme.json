@@ -1,0 +1,32 @@
+{
+  "brand": {
+    "primary": "#16a34a",
+    "primaryDark": "#15803d",
+    "secondary": "#059669"
+  },
+  "background": {
+    "mainGradient": "linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 50%, #f1f5f9 100%)",
+    "card": "rgba(255,255,255,0.65)",
+    "sidebar": "rgba(255,255,255,0.6)"
+  },
+  "text": {
+    "primary": "#0f172a",
+    "secondary": "#64748b",
+    "muted": "#94a3b8"
+  },
+  "status": {
+    "success": "#16a34a",
+    "warning": "#d97706",
+    "danger": "#ef4444",
+    "info": "#2563eb"
+  },
+  "buttons": {
+    "upload": "#16a34a",
+    "call": "#22c55e",
+    "schedule": "#2563eb"
+  },
+  "calendar": {
+    "today": "#2563eb",
+    "appointment": "#eff6ff"
+  }
+}
