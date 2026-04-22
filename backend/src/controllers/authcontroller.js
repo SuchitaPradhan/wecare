@@ -132,16 +132,24 @@ exports.forgotPassword = async (req, res) => {
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
 
-    // Terminal log for dev (T13 requirement)
-    console.log(`\n===========================================`);
-    console.log(`🔐 OTP GENERATED FOR ${email}`);
-    console.log(`🔑 OTP CODE: ${otp}`);
-    console.log(`===========================================\n`);
+    // ── Big visible terminal log ──────────────────────────
+    console.log(`\n`);
+    console.log(`╔══════════════════════════════════════════╗`);
+    console.log(`║         🔐  OTP GENERATED (DEV)          ║`);
+    console.log(`╠══════════════════════════════════════════╣`);
+    console.log(`║  Email : ${email.padEnd(32)}║`);
+    console.log(`║  OTP   : ${otp.padEnd(32)}║`);
+    console.log(`╚══════════════════════════════════════════╝`);
+    console.log(`\n`);
 
     await OTP.deleteMany({ email }); // Remove old OTPs for this email
     await OTP.create({ email, otp });
 
-    res.json({ message: "OTP sent successfully (Check terminal for development)" });
+    // Return OTP in response for development so the browser alert shows it
+    res.json({
+      message: `OTP generated! Your OTP is: ${otp}  (also printed in the backend terminal)`,
+      otp,   // remove this line before going to production
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

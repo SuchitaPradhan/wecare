@@ -85,7 +85,7 @@ export default function Signin() {
               <input
                 type="email"
                 className="form-input"
-                placeholder="you@example.com"
+                placeholder=""
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 required

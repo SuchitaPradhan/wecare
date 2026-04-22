@@ -74,7 +74,7 @@ export default function Signup() {
               <input
                 type="text"
                 className="form-input"
-                placeholder="John Doe"
+                placeholder=""
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
@@ -86,7 +86,7 @@ export default function Signup() {
               <input
                 type="email"
                 className="form-input"
-                placeholder="you@example.com"
+                placeholder=""
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 required
@@ -98,7 +98,7 @@ export default function Signup() {
               <input
                 type="tel"
                 className="form-input"
-                placeholder="10-digit number"
+                placeholder=""
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 required
