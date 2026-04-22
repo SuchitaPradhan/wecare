@@ -39,81 +39,103 @@ export default function Signup() {
   };
 
   return (
-    <div className="auth-page">
-      <div className="auth-container">
-        <div className="auth-header">
-          <Link to="/" className="auth-logo">WECARE</Link>
-          <h1 className="auth-title">Create Account</h1>
-          <p className="auth-subtitle">Join WECARE and take control of your health</p>
+    <div className="auth-split">
+      {/* Left branding panel */}
+      <div className="auth-split-left">
+        <div className="auth-brand-logo">WECARE</div>
+        <p className="auth-brand-tagline">Join thousands of patients and doctors on one trusted platform.</p>
+        <div className="auth-brand-features">
+          {[
+            "Book verified specialists",
+            "Manage appointments easily",
+            "Upload & track records",
+            "Secure & private always",
+          ].map((f) => (
+            <div key={f} className="auth-brand-feature">
+              <span className="auth-brand-feature-dot" />
+              {f}
+            </div>
+          ))}
         </div>
+      </div>
 
-        <form className="auth-form" onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label className="form-label">Full Name</label>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="John Doe"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              required
-            />
+      {/* Right form panel */}
+      <div className="auth-split-right">
+        <div className="auth-container">
+          <div className="auth-header">
+            <Link to="/" className="auth-logo">← WECARE</Link>
+            <h1 className="auth-title">Create Account</h1>
+            <p className="auth-subtitle">Join WECARE and take control of your health</p>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Email Address</label>
-            <input
-              type="email"
-              className="form-input"
-              placeholder="you@example.com"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              required
-            />
-          </div>
+          <form className="auth-form" onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label className="form-label">Full Name</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="John Doe"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+              />
+            </div>
 
-          <div className="form-group">
-            <label className="form-label">Phone Number</label>
-            <input
-              type="tel"
-              className="form-input"
-              placeholder="+91 98765 43210"
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              required
-            />
-          </div>
+            <div className="form-group">
+              <label className="form-label">Email Address</label>
+              <input
+                type="email"
+                className="form-input"
+                placeholder="you@example.com"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                required
+              />
+            </div>
 
-          <div className="form-group">
-            <label className="form-label">I am a</label>
-            <select
-              className="form-input"
-              value={formData.role}
-              onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-            >
-              <option value="patient">Patient</option>
-              <option value="doctor">Doctor</option>
-            </select>
-          </div>
+            <div className="form-group">
+              <label className="form-label">Phone Number</label>
+              <input
+                type="tel"
+                className="form-input"
+                placeholder="10-digit number"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                required
+              />
+            </div>
 
-          <div className="form-group">
-            <label className="form-label">Password</label>
-            <input
-              type="password"
-              className="form-input"
-              placeholder="••••••••"
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              required
-            />
-          </div>
+            <div className="form-group">
+              <label className="form-label">I am a</label>
+              <select
+                className="form-input"
+                value={formData.role}
+                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+              >
+                <option value="patient">Patient</option>
+                <option value="doctor">Doctor</option>
+              </select>
+            </div>
 
-          <button type="submit" className="btn btn-primary btn-lg">Create Account</button>
-        </form>
+            <div className="form-group">
+              <label className="form-label">Password</label>
+              <input
+                type="password"
+                className="form-input"
+                placeholder="••••••••"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                required
+              />
+            </div>
 
-        <p className="auth-link">
-          Already have an account? <Link to="/signin">Sign in</Link>
-        </p>
+            <button type="submit" className="btn btn-primary btn-lg">Create Account →</button>
+          </form>
+
+          <p className="auth-link">
+            Already have an account? <Link to="/signin">Sign in</Link>
+          </p>
+        </div>
       </div>
     </div>
   );
