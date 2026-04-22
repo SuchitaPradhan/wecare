@@ -1,105 +1,156 @@
-import React, { useState, useEffect } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
-import { apiFetch, API_BASE } from "../config/api";
+import React, { useEffect, useMemo, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { apiFetch, publicFetch } from "../config/api";
+
+const CONSULTATION_FEES = {
+  offline: 700,
+  online: 1200,
+};
+
+function formatTime(value) {
+  if (!value) return "";
+  const [hours, minutes] = value.split(":");
+  const hourNumber = Number(hours);
+  const suffix = hourNumber >= 12 ? "PM" : "AM";
+  const normalizedHour = hourNumber % 12 || 12;
+  return `${normalizedHour}:${minutes} ${suffix}`;
+}
 
 export default function Booking() {
   const navigate = useNavigate();
   const location = useLocation();
+
   const [step, setStep] = useState(1);
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [doctors, setDoctors] = useState([]);
   const [booking, setBooking] = useState({
-    doctor: location.state?.doctorId || "", // Doctor ID
+    doctor: location.state?.doctorId || "",
     doctorName: location.state?.doctor || "",
     specialty: location.state?.specialty || "",
+    hospital: location.state?.hospital || "",
     date: "",
     time: "",
     type: "offline",
-    notes: ""
+    notes: "",
   });
-  const [doctorsList, setDoctorsList] = useState([]);
+  const [payment, setPayment] = useState({
+    payerName: "",
+    cardNumber: "",
+    expiry: "",
+    cvv: "",
+  });
 
   useEffect(() => {
-    fetch(`${API_BASE}/doctors`)
-      .then((res) => res.json())
+    publicFetch("/doctors")
       .then((data) => {
-        if (Array.isArray(data)) {
-          setDoctorsList(data);
-        }
+        setDoctors(Array.isArray(data) ? data : []);
       })
-      .catch(console.error);
+      .catch(() => {
+        setDoctors([]);
+      });
   }, []);
 
-  const specialties = ["Cardiology", "Neurology", "Dermatology", "Orthopedics", "General Medicine"];
-  const timeSlots = ["09:00 AM", "10:00 AM", "11:00 AM", "02:00 PM", "03:00 PM", "04:00 PM"];
+  const selectedDoctor = useMemo(
+    () => doctors.find((doctor) => doctor._id === booking.doctor),
+    [booking.doctor, doctors]
+  );
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const token = localStorage.getItem("token");
+  const specialties = useMemo(
+    () => [...new Set(doctors.map((doctor) => doctor.specialty).filter(Boolean))].sort(),
+    [doctors]
+  );
+
+  useEffect(() => {
+    if (!selectedDoctor) return;
+    setBooking((current) => ({
+      ...current,
+      doctorName: selectedDoctor.name,
+      specialty: selectedDoctor.specialty || current.specialty,
+      hospital: selectedDoctor.hospital || "",
+    }));
+  }, [selectedDoctor]);
+
+  const totalSteps = booking.type === "online" ? 4 : 3;
+  const consultationFee = CONSULTATION_FEES[booking.type] || CONSULTATION_FEES.offline;
+
+  const canContinueStepOne =
+    booking.specialty && booking.type && (booking.doctor ? booking.doctorName : true);
+  const canContinueStepTwo = booking.date && booking.time;
+  const canSubmitOnline = true;
+
+  const createAppointment = async (payload) => {
+    const response = await apiFetch("/appointments", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+
+    setIsCompleted(true);
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setLoading(true);
 
     try {
-      if (token) {
-        // Save to database via API
-        await apiFetch("/appointments", {
-          method: "POST",
-          body: JSON.stringify({
-            doctor: booking.doctor || null,
-            doctorName: booking.doctorName || "Any Available Doctor",
-            specialty: booking.specialty,
-            date: booking.date,
-            time: booking.time,
-            type: booking.type,
-            notes: booking.notes,
-          }),
-        });
-      } else {
-        // Fallback: save to localStorage for guests
-        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-        const existingAppointments = JSON.parse(localStorage.getItem('appointments') || '[]');
-        existingAppointments.push({
-          id: Date.now(),
-          patientName: currentUser.name || "Guest",
-          patientEmail: currentUser.email || "guest@example.com",
-          doctor: booking.doctorName || "Any Available Doctor",
-          specialty: booking.specialty,
-          date: booking.date,
-          time: booking.time,
-          status: "Upcoming",
-          type: booking.type,
-          notes: booking.notes,
-        });
-        localStorage.setItem('appointments', JSON.stringify(existingAppointments));
-      }
+      const payload = {
+        doctor: booking.doctor || null,
+        specialty: booking.specialty,
+        date: booking.date,
+        time: formatTime(booking.time),
+        type: booking.type,
+        notes: booking.notes,
+        hospital: booking.hospital,
+        fee: consultationFee,
+        status: booking.type === "online" ? "Confirmed" : "Upcoming",
+        paymentStatus: booking.type === "online" ? "Paid" : "Pending",
+        paymentMethod: booking.type === "online" ? "Card" : "In Person",
+        paymentReference:
+          booking.type === "online" ? `TXN-${Date.now().toString().slice(-8)}` : "",
+      };
 
-      alert("Appointment booked successfully!");
-      navigate("/Patientdashboard");
-    } catch (err) {
-      alert("Booking failed: " + err.message);
+      await createAppointment(payload);
+    } catch (error) {
+      alert(error.message || "Booking failed");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="auth-page">
-      <div className="auth-container" style={{ maxWidth: "520px" }}>
+      <div className="auth-container" style={{ maxWidth: "560px" }}>
         <div className="auth-header">
-          <Link to="/" className="auth-logo">WECARE</Link>
+          <Link to="/" className="auth-logo">
+            WECARE
+          </Link>
           <h1 className="auth-title">Book Appointment</h1>
-          <p className="auth-subtitle">Step {step} of 3</p>
+          <p className="auth-subtitle">
+            Step {step} of {totalSteps}
+          </p>
         </div>
 
         <form className="auth-form" onSubmit={handleSubmit}>
-          {step === 1 && (
+          {step === 1 && !isCompleted && (
             <>
               <div className="form-group">
                 <label className="form-label">Select Doctor (Optional)</label>
                 <select
                   className="form-input"
                   value={booking.doctor}
-                  onChange={(e) => {
-                    const selDoc = doctorsList.find(d => d._id === e.target.value || d.id === e.target.value);
-                    setBooking({ ...booking, doctor: e.target.value, doctorName: selDoc ? selDoc.name : "" });
-                  }}
+                  onChange={(event) =>
+                    setBooking((current) => ({
+                      ...current,
+                      doctor: event.target.value,
+                    }))
+                  }
                 >
                   <option value="">Any Available Doctor</option>
-                  {doctorsList.map(d => <option key={d._id || d.id} value={d._id || d.id}>{d.name} ({d.specialty})</option>)}
+                  {doctors.map((doctor) => (
+                    <option key={doctor._id} value={doctor._id}>
+                      {doctor.name} ({doctor.specialty})
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -108,11 +159,20 @@ export default function Booking() {
                 <select
                   className="form-input"
                   value={booking.specialty}
-                  onChange={(e) => setBooking({ ...booking, specialty: e.target.value })}
+                  onChange={(event) =>
+                    setBooking((current) => ({
+                      ...current,
+                      specialty: event.target.value,
+                    }))
+                  }
                   required
                 >
                   <option value="">Choose specialty...</option>
-                  {specialties.map(s => <option key={s} value={s}>{s}</option>)}
+                  {specialties.map((specialty) => (
+                    <option key={specialty} value={specialty}>
+                      {specialty}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -121,20 +181,40 @@ export default function Booking() {
                 <select
                   className="form-input"
                   value={booking.type}
-                  onChange={(e) => setBooking({ ...booking, type: e.target.value })}
+                  onChange={(event) =>
+                    setBooking((current) => ({
+                      ...current,
+                      type: event.target.value,
+                    }))
+                  }
                 >
                   <option value="offline">In-Person Visit</option>
                   <option value="online">Video Consultation</option>
                 </select>
               </div>
 
-              <button type="button" className="btn btn-primary btn-lg" onClick={() => setStep(2)}>
+              {selectedDoctor?.hospital && (
+                <div style={summaryCardStyles}>
+                  <strong>{selectedDoctor.name}</strong>
+                  <p style={{ margin: "0.35rem 0 0" }}>
+                    {selectedDoctor.hospital}
+                    {selectedDoctor.city ? `, ${selectedDoctor.city}` : ""}
+                  </p>
+                </div>
+              )}
+
+              <button
+                type="button"
+                className="btn btn-primary btn-lg"
+                onClick={() => setStep(2)}
+                disabled={!canContinueStepOne}
+              >
                 Continue
               </button>
             </>
           )}
 
-          {step === 2 && (
+          {step === 2 && !isCompleted && (
             <>
               <div className="form-group">
                 <label className="form-label">Select Date</label>
@@ -142,36 +222,54 @@ export default function Booking() {
                   type="date"
                   className="form-input"
                   value={booking.date}
-                  onChange={(e) => setBooking({ ...booking, date: e.target.value })}
+                  onChange={(event) =>
+                    setBooking((current) => ({
+                      ...current,
+                      date: event.target.value,
+                    }))
+                  }
+                  min={new Date().toISOString().split("T")[0]}
                   required
                 />
               </div>
 
               <div className="form-group">
-                <label className="form-label">Select Time Slot</label>
-                <select
+                <label className="form-label">Select Time</label>
+                <input
+                  type="time"
                   className="form-input"
                   value={booking.time}
-                  onChange={(e) => setBooking({ ...booking, time: e.target.value })}
+                  onChange={(event) =>
+                    setBooking((current) => ({
+                      ...current,
+                      time: event.target.value,
+                    }))
+                  }
                   required
-                >
-                  <option value="">Choose time...</option>
-                  {timeSlots.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
+                />
               </div>
 
               <div style={{ display: "flex", gap: "1rem" }}>
-                <button type="button" className="btn btn-outline btn-lg" onClick={() => setStep(1)}>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-lg"
+                  onClick={() => setStep(1)}
+                >
                   Back
                 </button>
-                <button type="button" className="btn btn-primary btn-lg" onClick={() => setStep(3)}>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-lg"
+                  onClick={() => setStep(3)}
+                  disabled={!canContinueStepTwo}
+                >
                   Continue
                 </button>
               </div>
             </>
           )}
 
-          {step === 3 && (
+          {step === 3 && !isCompleted && (
             <>
               <div className="form-group">
                 <label className="form-label">Additional Notes (Optional)</label>
@@ -180,33 +278,131 @@ export default function Booking() {
                   rows="4"
                   placeholder="Describe your symptoms or concerns..."
                   value={booking.notes}
-                  onChange={(e) => setBooking({ ...booking, notes: e.target.value })}
+                  onChange={(event) =>
+                    setBooking((current) => ({
+                      ...current,
+                      notes: event.target.value,
+                    }))
+                  }
                 />
               </div>
 
-              <div style={{ background: "var(--color-bg-cream)", padding: "1rem", borderRadius: "12px", marginBottom: "1rem" }}>
-                <p style={{ fontSize: "0.875rem", color: "var(--color-text-muted)", marginBottom: "0.5rem" }}>Appointment Summary</p>
-                {booking.doctorName && <p style={{ marginBottom: "0.25rem" }}><strong>Doctor:</strong> {booking.doctorName}</p>}
-                <p><strong>{booking.specialty || "General"}</strong> • {booking.type === "online" ? "Video Call" : "In-Person"}</p>
-                <p>{booking.date} at {booking.time}</p>
+              <div style={summaryCardStyles}>
+                <p style={summaryLabelStyles}>Appointment Summary</p>
+                <p style={{ marginBottom: "0.25rem" }}>
+                  <strong>Doctor:</strong> {booking.doctorName || "Any Available Doctor"}
+                </p>
+                <p style={{ marginBottom: "0.25rem" }}>
+                  <strong>Specialty:</strong> {booking.specialty}
+                </p>
+                <p style={{ marginBottom: "0.25rem" }}>
+                  <strong>Type:</strong>{" "}
+                  {booking.type === "online" ? "Video Consultation" : "In-Person"}
+                </p>
+                <p style={{ marginBottom: "0.25rem" }}>
+                  <strong>Schedule:</strong> {booking.date} at {formatTime(booking.time)}
+                </p>
+                <p style={{ marginBottom: 0 }}>
+                  <strong>Fee:</strong> ₹{consultationFee}
+                </p>
               </div>
 
               <div style={{ display: "flex", gap: "1rem" }}>
-                <button type="button" className="btn btn-outline btn-lg" onClick={() => setStep(2)}>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-lg"
+                  onClick={() => setStep(2)}
+                >
                   Back
                 </button>
-                <button type="submit" className="btn btn-primary btn-lg">
-                  Confirm Booking
+                {booking.type === "online" ? (
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-lg"
+                    onClick={() => setStep(4)}
+                  >
+                    Continue to Payment
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    className="btn btn-primary btn-lg"
+                    disabled={loading}
+                  >
+                    {loading ? "Booking..." : "Confirm Booking"}
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+
+          {step === 4 && booking.type === "online" && !isCompleted && (
+            <>
+              <div style={summaryCardStyles}>
+                <p style={summaryLabelStyles}>Payment Summary</p>
+                <p style={{ margin: 0 }}>
+                  Video consultation payment to be charged now: <strong>₹{consultationFee}</strong>
+                </p>
+              </div>
+
+              <div style={{ display: "flex", gap: "1rem" }}>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-lg"
+                  onClick={() => setStep(3)}
+                >
+                  Back
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary btn-lg"
+                  disabled={loading}
+                >
+                  {loading ? "Processing..." : `Pay ₹${consultationFee} & Book`}
                 </button>
               </div>
             </>
           )}
+
+          {isCompleted && (
+            <div style={{ textAlign: "center", padding: "2rem 0" }}>
+              <h2 style={{ color: "#16a34a", marginBottom: "1rem" }}>
+                {booking.type === "online" ? "Payment Completed!" : "Booking Successful!"}
+              </h2>
+              <p style={{ marginBottom: "2rem", color: "#475569", fontSize: "1.1rem" }}>
+                Your appointment has been successfully confirmed.
+              </p>
+              <button
+                type="button"
+                className="btn btn-primary btn-lg"
+                onClick={() => navigate("/Patientdashboard")}
+                style={{ width: "100%" }}
+              >
+                Go to Dashboard
+              </button>
+            </div>
+          )}
         </form>
 
-        <p className="auth-link">
-          <Link to="/">← Back to Home</Link>
-        </p>
+        {!isCompleted && (
+          <p className="auth-link">
+            <Link to="/">← Back to Home</Link>
+          </p>
+        )}
       </div>
     </div>
   );
 }
+
+const summaryCardStyles = {
+  background: "var(--color-bg-cream)",
+  padding: "1rem",
+  borderRadius: "12px",
+  marginBottom: "1rem",
+};
+
+const summaryLabelStyles = {
+  fontSize: "0.875rem",
+  color: "var(--color-text-muted)",
+  marginBottom: "0.5rem",
+};

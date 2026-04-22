@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { apiFetch } from "../config/api";
+import { publicFetch } from "../config/api";
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
@@ -14,15 +14,10 @@ export default function ForgotPassword() {
     e.preventDefault();
     setLoading(true);
     try {
-      // Direct fetch, no token needed
-      const res = await fetch("http://localhost:5000/api/auth/forgot-password", {
+      const data = await publicFetch("/auth/forgot-password", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
-      
       alert(data.message);
       setStep(2);
     } catch (error) {
@@ -35,14 +30,10 @@ export default function ForgotPassword() {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:5000/api/auth/reset-password", {
+      await publicFetch("/auth/reset-password", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, otp, newPassword }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
-      
       alert("Password reset successfully. Please login.");
       navigate("/signin");
     } catch (error) {

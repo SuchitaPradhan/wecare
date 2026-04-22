@@ -6,7 +6,12 @@ const jwt     = require("jsonwebtoken");
 // ── REGISTER ──────────────────────────────────────────────
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, phone, role } = req.body;
+    const { name, password, phone, role } = req.body;
+    const email = req.body.email?.toLowerCase().trim();
+
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
 
     const userExists = await User.findOne({ email });
     if (userExists) {
@@ -42,13 +47,21 @@ exports.register = async (req, res) => {
 // ── LOGIN ─────────────────────────────────────────────────
 exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const password = req.body.password;
+    const email = req.body.email?.toLowerCase().trim();
+
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password are required" });
+    }
 
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ message: "User not found" });
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ message: "Invalid password" });
+
+    user.lastLoginAt = new Date();
+    await user.save();
 
     // Sign JWT
     const token = jwt.sign(
@@ -66,6 +79,7 @@ exports.login = async (req, res) => {
         email: user.email,
         role:  user.role,
         phone: user.phone,
+        lastLoginAt: user.lastLoginAt,
       },
     });
   } catch (error) {

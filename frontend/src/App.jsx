@@ -5,7 +5,7 @@ import Signup from "./pages/Signup";
 import Booking from "./pages/Booking";
 import DoctorDashboard from "./pages/DoctorDashboard";
 import Patientdashboard from "./pages/Patientdashboard";
-import AdminDashboard from "./pages/Admindashboard";
+import AdminDashboard from "./pages/AdminDashboard";
 import Doctors from "./pages/Doctors";
 import ForgotPassword from "./pages/ForgotPassword";
 

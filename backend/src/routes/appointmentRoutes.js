@@ -24,7 +24,12 @@ router.get("/my", authMiddleware, getMyAppointments);
 router.get("/doctor", authMiddleware, roleMiddleware("doctor"), getDoctorAppointments);
 
 // Doctor or Admin updates appointment status
-router.put("/:id/status", authMiddleware, updateAppointmentStatus);
+router.put(
+  "/:id/status",
+  authMiddleware,
+  roleMiddleware("doctor", "admin"),
+  updateAppointmentStatus
+);
 
 // Admin gets all appointments
 router.get("/all", authMiddleware, roleMiddleware("admin"), getAllAppointments);

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { publicFetch } from "../config/api";
 
 export default function Signin() {
   const navigate = useNavigate();
@@ -13,21 +14,13 @@ export default function Signin() {
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:5000/api/auth/login", {
+      const data = await publicFetch("/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: formData.email.toLowerCase().trim(),
           password: formData.password,
         }),
       });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.message || "Login failed. Check your credentials.");
-        return;
-      }
 
       localStorage.setItem("token", data.token);
       localStorage.setItem("currentUser", JSON.stringify(data.user));
@@ -36,9 +29,7 @@ export default function Signin() {
       else if (data.user.role === "doctor") navigate("/DoctorDashboard");
       else navigate("/Patientdashboard");
     } catch (err) {
-      setError(
-        "Cannot connect to server. Make sure backend is running on port 5000."
-      );
+      setError(err.message || "Unable to sign in right now.");
     } finally {
       setLoading(false);
     }

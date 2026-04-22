@@ -1,68 +1,76 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { apiFetch } from "../config/api";
 import "./AdminDashboard.css";
-import doctorsDataFallback from "../data/doctors.json";
-import { apiFetch, API_BASE } from "../config/api";
 
 const AdminDashboard = () => {
+  const navigate = useNavigate();
   const [activeNav, setActiveNav] = useState("dashboard");
-  const [doctorStats, setDoctorStats] = useState([]);
-  const [totalDoctors, setTotalDoctors] = useState(0);
-  const [availableDoctorsCount, setAvailableDoctorsCount] = useState(0);
-  const [totalIncome, setTotalIncome] = useState(0);
-  const [totalPatientsToday, setTotalPatientsToday] = useState(0);
+  const [stats, setStats] = useState({
+    totalDoctors: 0,
+    totalPatients: 0,
+    totalAppointments: 0,
+    todaysAppointments: 0,
+    totalRevenue: 0,
+    pendingAppointments: 0,
+    completedAppointments: 0,
+    cancelledAppointments: 0,
+    availableDoctors: 0,
+  });
+  const [doctors, setDoctors] = useState([]);
+  const [patients, setPatients] = useState([]);
+  const [appointments, setAppointments] = useState([]);
 
   useEffect(() => {
-    // Fetch doctors from API
-    fetch(`${API_BASE}/doctors`)
-      .then((res) => res.json())
-      .then((docs) => {
-        if (Array.isArray(docs) && docs.length > 0) {
-          const stats = docs.map((d) => ({
-            ...d,
-            id: d._id || d.id,
-            speciality: d.specialty || d.speciality,
-            patients: Math.floor(Math.random() * 20) + 5,
-            pending: Math.floor(Math.random() * 5),
-            cancelled: Math.floor(Math.random() * 3),
-            todayIncome: Math.floor(Math.random() * 5000) + 2000,
-            isAvailable: d.isAvailable !== undefined ? d.isAvailable : Math.random() > 0.2,
-          }));
-          setDoctorStats(stats);
-          setTotalDoctors(stats.length);
-          setAvailableDoctorsCount(stats.filter((d) => d.isAvailable).length);
-          setTotalIncome(stats.reduce((acc, curr) => acc + curr.todayIncome, 0));
-          setTotalPatientsToday(stats.reduce((acc, curr) => acc + curr.patients, 0));
-        }
+    Promise.all([
+      apiFetch("/admin/stats"),
+      apiFetch("/admin/users?role=doctor"),
+      apiFetch("/admin/users?role=patient"),
+      apiFetch("/appointments/all"),
+    ])
+      .then(([statsResponse, doctorsResponse, patientsResponse, appointmentsResponse]) => {
+        setStats(statsResponse || {});
+        setDoctors(Array.isArray(doctorsResponse) ? doctorsResponse : []);
+        setPatients(Array.isArray(patientsResponse) ? patientsResponse : []);
+        setAppointments(Array.isArray(appointmentsResponse) ? appointmentsResponse : []);
       })
-      .catch(() => {
-        // Fallback to JSON
-        const stats = doctorsDataFallback.map((doc) => ({
-          ...doc,
-          patients: Math.floor(Math.random() * 20) + 5,
-          pending: Math.floor(Math.random() * 5),
-          cancelled: Math.floor(Math.random() * 3),
-          todayIncome: Math.floor(Math.random() * 5000) + 2000,
-          isAvailable: Math.random() > 0.2,
-        }));
-        setDoctorStats(stats);
-        setTotalDoctors(stats.length);
-        setAvailableDoctorsCount(stats.filter((d) => d.isAvailable).length);
-        setTotalIncome(stats.reduce((acc, curr) => acc + curr.todayIncome, 0));
-        setTotalPatientsToday(stats.reduce((acc, curr) => acc + curr.patients, 0));
+      .catch((error) => {
+        alert(error.message || "Failed to load admin dashboard");
       });
-
-    // Fetch real stats from admin API (if token available)
-    const token = localStorage.getItem("token");
-    if (token) {
-      apiFetch("/admin/stats")
-        .then((s) => {
-          if (s.totalDoctors) setTotalDoctors(s.totalDoctors);
-          if (s.availableDoctors !== undefined) setAvailableDoctorsCount(s.availableDoctors);
-          if (s.totalRevenue) setTotalIncome(s.totalRevenue);
-        })
-        .catch(() => {});
-    }
   }, []);
+
+  const appointmentsByDoctor = useMemo(() => {
+    const summary = new Map();
+
+    appointments.forEach((appointment) => {
+      const doctorId = appointment.doctor?._id || appointment.doctorName;
+      if (!summary.has(doctorId)) {
+        summary.set(doctorId, {
+          id: doctorId,
+          name: appointment.doctor?.name || appointment.doctorName || "Unassigned",
+          specialty: appointment.doctor?.specialty || appointment.specialty,
+          patients: 0,
+          pending: 0,
+          cancelled: 0,
+          completed: 0,
+        });
+      }
+
+      const doctor = summary.get(doctorId);
+      doctor.patients += 1;
+      if (appointment.status === "Upcoming" || appointment.status === "Pending") {
+        doctor.pending += 1;
+      }
+      if (appointment.status === "Cancelled") {
+        doctor.cancelled += 1;
+      }
+      if (appointment.status === "Completed") {
+        doctor.completed += 1;
+      }
+    });
+
+    return Array.from(summary.values());
+  }, [appointments]);
 
   const scrollToSection = (id) => {
     setActiveNav(id);
@@ -72,95 +80,70 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem("currentUser");
+    localStorage.removeItem("token");
+    navigate("/signin");
+  };
+
   return (
     <div className="admin-dashboard">
-      {/* Sidebar */}
       <aside className="admin-sidebar">
         <h2 className="admin-logo">WECARE Admin</h2>
 
-        {/* ✅ Each nav link scrolls and highlights */}
         <nav>
-          <a
-            className={activeNav === "dashboard" ? "active" : ""}
-            onClick={() => scrollToSection("dashboard")}
-            style={{ cursor: "pointer" }}
-          >
-            Dashboard
-          </a>
-          <a
-            className={activeNav === "doctors" ? "active" : ""}
-            onClick={() => scrollToSection("doctors")}
-            style={{ cursor: "pointer" }}
-          >
-            Doctors
-          </a>
-          <a
-            className={activeNav === "patients" ? "active" : ""}
-            onClick={() => scrollToSection("patients")}
-            style={{ cursor: "pointer" }}
-          >
-            Patients
-          </a>
-          <a
-            className={activeNav === "appointments" ? "active" : ""}
-            onClick={() => scrollToSection("appointments")}
-            style={{ cursor: "pointer" }}
-          >
-            Appointments
-          </a>
-          <a
-            className={activeNav === "prescriptions" ? "active" : ""}
-            onClick={() => scrollToSection("prescriptions")}
-            style={{ cursor: "pointer" }}
-          >
-            Prescriptions
-          </a>
-          <a
-            className={activeNav === "reports" ? "active" : ""}
-            onClick={() => scrollToSection("reports")}
-            style={{ cursor: "pointer" }}
-          >
-            Reports
+          {[
+            ["dashboard", "Dashboard"],
+            ["doctors", "Doctors"],
+            ["patients", "Patients"],
+            ["appointments", "Appointments"],
+            ["reports", "Reports"],
+          ].map(([id, label]) => (
+            <a
+              key={id}
+              className={activeNav === id ? "active" : ""}
+              onClick={() => scrollToSection(id)}
+              style={{ cursor: "pointer" }}
+            >
+              {label}
+            </a>
+          ))}
+          <a onClick={handleLogout} style={{ cursor: "pointer" }}>
+            Logout
           </a>
         </nav>
       </aside>
 
-      {/* Main Content */}
       <main className="admin-main">
-
-        {/* ✅ id="dashboard" — wraps the original dashboard content */}
         <div id="dashboard">
-          {/* Header */}
           <header className="admin-header">
             <h1>Admin Dashboard</h1>
-            <p>Overview of hospital performance today</p>
+            <p>Live operational overview from the backend.</p>
           </header>
 
-          {/* Stats Cards */}
           <section className="stats-grid">
             <div className="stat-card blue">
               <h3>Total Doctors</h3>
-              <p>{totalDoctors}</p>
-              <span>Registered Specialists</span>
+              <p>{stats.totalDoctors || 0}</p>
+              <span>Registered specialists</span>
             </div>
             <div className="stat-card green">
-              <h3>Today's Income</h3>
-              <p>₹{totalIncome.toLocaleString()}</p>
-              <span>Total Earnings Today</span>
+              <h3>Total Patients</h3>
+              <p>{stats.totalPatients || 0}</p>
+              <span>Registered patients</span>
             </div>
             <div className="stat-card purple">
-              <h3>Available Doctors</h3>
-              <p>{availableDoctorsCount} / {totalDoctors}</p>
-              <span>Currently Active</span>
+              <h3>Today's Appointments</h3>
+              <p>{stats.todaysAppointments || 0}</p>
+              <span>Scheduled today</span>
             </div>
             <div className="stat-card orange">
-              <h3>Patients Today</h3>
-              <p>{totalPatientsToday}</p>
-              <span>Appointments Scheduled</span>
+              <h3>Total Revenue</h3>
+              <p>₹{(stats.totalRevenue || 0).toLocaleString()}</p>
+              <span>Paid appointment revenue</span>
             </div>
           </section>
 
-          {/* Doctor Activity Table */}
           <section className="admin-section">
             <h2>Doctor Appointment Activity</h2>
             <div className="table-responsive">
@@ -169,83 +152,59 @@ const AdminDashboard = () => {
                   <tr>
                     <th>Doctor Name</th>
                     <th>Speciality</th>
-                    <th>Patients (Today)</th>
-                    <th>Pending Appts</th>
-                    <th>Cancelled Appts</th>
-                    <th>Status</th>
+                    <th>Patients</th>
+                    <th>Pending</th>
+                    <th>Cancelled</th>
+                    <th>Completed</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {doctorStats.map((doc) => (
-                    <tr key={doc.id}>
-                      <td>
-                        <div className="doctor-cell">
-                          <div className="doctor-avatar-small">
-                            <img src={`https://ui-avatars.com/api/?name=${doc.name}&background=random`} alt={doc.name} />
-                          </div>
-                          <span className="doctor-name-text">{doc.name}</span>
-                        </div>
-                      </td>
-                      <td>{doc.speciality}</td>
-                      <td>{doc.patients}</td>
-                      <td>
-                        {doc.pending > 0 ? (
-                          <span className="badge badge-warning">{doc.pending} Pending</span>
-                        ) : (
-                          <span className="text-muted">-</span>
-                        )}
-                      </td>
-                      <td>
-                        {doc.cancelled > 0 ? (
-                          <span className="badge badge-danger">{doc.cancelled} Cancelled</span>
-                        ) : (
-                          <span className="text-muted">-</span>
-                        )}
-                      </td>
-                      <td>
-                        <span className={`status ${doc.isAvailable ? "active" : "inactive"}`}>
-                          {doc.isAvailable ? "Available" : "Busy"}
-                        </span>
-                      </td>
+                  {appointmentsByDoctor.map((doctor) => (
+                    <tr key={doctor.id}>
+                      <td>{doctor.name}</td>
+                      <td>{doctor.specialty || "Not assigned"}</td>
+                      <td>{doctor.patients}</td>
+                      <td>{doctor.pending}</td>
+                      <td>{doctor.cancelled}</td>
+                      <td>{doctor.completed}</td>
                     </tr>
                   ))}
+                  {appointmentsByDoctor.length === 0 && (
+                    <tr>
+                      <td colSpan="6">No appointment activity yet.</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
           </section>
         </div>
 
-        {/* ✅ id="doctors" */}
         <section id="doctors" className="admin-section" style={{ marginTop: "40px" }}>
           <h2>Doctors</h2>
           <div className="table-responsive">
             <table className="admin-table">
               <thead>
                 <tr>
-                  <th>Doctor Name</th>
+                  <th>Name</th>
                   <th>Speciality</th>
+                  <th>Hospital</th>
+                  <th>City</th>
                   <th>Status</th>
-                  <th>Today's Income</th>
                 </tr>
               </thead>
               <tbody>
-                {doctorStats.map((doc) => (
-                  <tr key={doc.id}>
+                {doctors.map((doctor) => (
+                  <tr key={doctor._id}>
+                    <td>{doctor.name}</td>
+                    <td>{doctor.specialty || "Not added"}</td>
+                    <td>{doctor.hospital || "Not added"}</td>
+                    <td>{doctor.city || "Not added"}</td>
                     <td>
-                      <div className="doctor-cell">
-                        <div className="doctor-avatar-small">
-                          <img src={`https://ui-avatars.com/api/?name=${doc.name}&background=random`} alt={doc.name} />
-                        </div>
-                        <span className="doctor-name-text">{doc.name}</span>
-                      </div>
-                    </td>
-                    <td>{doc.speciality}</td>
-                    <td>
-                      <span className={`status ${doc.isAvailable ? "active" : "inactive"}`}>
-                        {doc.isAvailable ? "Available" : "Busy"}
+                      <span className={`status ${doctor.isAvailable ? "active" : "inactive"}`}>
+                        {doctor.isAvailable ? "Available" : "Busy"}
                       </span>
                     </td>
-                    <td>₹{doc.todayIncome.toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>
@@ -253,78 +212,59 @@ const AdminDashboard = () => {
           </div>
         </section>
 
-        {/* ✅ id="patients" */}
         <section id="patients" className="admin-section" style={{ marginTop: "40px" }}>
           <h2>Patients</h2>
           <div className="table-responsive">
             <table className="admin-table">
               <thead>
                 <tr>
-                  <th>#</th>
-                  <th>Assigned Doctor</th>
-                  <th>Speciality</th>
-                  <th>Patients Today</th>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                  <th>Blood Group</th>
                 </tr>
               </thead>
               <tbody>
-                {doctorStats.map((doc, i) => (
-                  <tr key={doc.id}>
-                    <td>{i + 1}</td>
-                    <td>{doc.name}</td>
-                    <td>{doc.speciality}</td>
-                    <td>{doc.patients}</td>
+                {patients.map((patient) => (
+                  <tr key={patient._id}>
+                    <td>{patient.name}</td>
+                    <td>{patient.email}</td>
+                    <td>{patient.phone}</td>
+                    <td>{patient.bloodGroup || "—"}</td>
                   </tr>
                 ))}
-                <tr style={{ fontWeight: "bold", background: "#f8fafc" }}>
-                  <td colSpan={3}>Total Patients Today</td>
-                  <td>{totalPatientsToday}</td>
-                </tr>
               </tbody>
             </table>
           </div>
         </section>
 
-        {/* ✅ id="appointments" */}
-        <section id="appointments" className="admin-section" style={{ marginTop: "40px" }}>
+        <section
+          id="appointments"
+          className="admin-section"
+          style={{ marginTop: "40px" }}
+        >
           <h2>Appointments</h2>
           <div className="table-responsive">
             <table className="admin-table">
               <thead>
                 <tr>
-                  <th>Doctor Name</th>
+                  <th>Patient</th>
+                  <th>Doctor</th>
                   <th>Speciality</th>
-                  <th>Pending</th>
-                  <th>Cancelled</th>
-                  <th>Patients (Today)</th>
+                  <th>Date</th>
+                  <th>Status</th>
                 </tr>
               </thead>
               <tbody>
-                {doctorStats.map((doc) => (
-                  <tr key={doc.id}>
+                {appointments.map((appointment) => (
+                  <tr key={appointment._id}>
+                    <td>{appointment.patientName}</td>
+                    <td>{appointment.doctorName}</td>
+                    <td>{appointment.specialty}</td>
                     <td>
-                      <div className="doctor-cell">
-                        <div className="doctor-avatar-small">
-                          <img src={`https://ui-avatars.com/api/?name=${doc.name}&background=random`} alt={doc.name} />
-                        </div>
-                        <span className="doctor-name-text">{doc.name}</span>
-                      </div>
+                      {appointment.date} at {appointment.time}
                     </td>
-                    <td>{doc.speciality}</td>
-                    <td>
-                      {doc.pending > 0 ? (
-                        <span className="badge badge-warning">{doc.pending} Pending</span>
-                      ) : (
-                        <span className="text-muted">-</span>
-                      )}
-                    </td>
-                    <td>
-                      {doc.cancelled > 0 ? (
-                        <span className="badge badge-danger">{doc.cancelled} Cancelled</span>
-                      ) : (
-                        <span className="text-muted">-</span>
-                      )}
-                    </td>
-                    <td>{doc.patients}</td>
+                    <td>{appointment.status}</td>
                   </tr>
                 ))}
               </tbody>
@@ -332,57 +272,45 @@ const AdminDashboard = () => {
           </div>
         </section>
 
-        {/* ✅ id="prescriptions" */}
-        <section id="prescriptions" className="admin-section" style={{ marginTop: "40px" }}>
-          <h2>Prescriptions</h2>
-          <p style={{ color: "#64748b", padding: "1rem 0" }}>Prescription management coming soon.</p>
-        </section>
-
-        {/* ✅ id="reports" */}
-        <section id="reports" className="admin-section" style={{ marginTop: "40px", marginBottom: "40px" }}>
+        <section
+          id="reports"
+          className="admin-section"
+          style={{ marginTop: "40px", marginBottom: "40px" }}
+        >
           <h2>Reports</h2>
           <div className="table-responsive">
             <table className="admin-table">
               <thead>
                 <tr>
-                  <th>Doctor Name</th>
-                  <th>Speciality</th>
-                  <th>Patients Today</th>
-                  <th>Today's Income</th>
-                  <th>Status</th>
+                  <th>Metric</th>
+                  <th>Value</th>
                 </tr>
               </thead>
               <tbody>
-                {doctorStats.map((doc) => (
-                  <tr key={doc.id}>
-                    <td>
-                      <div className="doctor-cell">
-                        <div className="doctor-avatar-small">
-                          <img src={`https://ui-avatars.com/api/?name=${doc.name}&background=random`} alt={doc.name} />
-                        </div>
-                        <span className="doctor-name-text">{doc.name}</span>
-                      </div>
-                    </td>
-                    <td>{doc.speciality}</td>
-                    <td>{doc.patients}</td>
-                    <td>₹{doc.todayIncome.toLocaleString()}</td>
-                    <td>
-                      <span className={`status ${doc.isAvailable ? "active" : "inactive"}`}>
-                        {doc.isAvailable ? "Available" : "Busy"}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-                <tr style={{ fontWeight: "bold", background: "#f8fafc" }}>
-                  <td colSpan={3}>Total Income Today</td>
-                  <td>₹{totalIncome.toLocaleString()}</td>
-                  <td></td>
+                <tr>
+                  <td>Available Doctors</td>
+                  <td>{stats.availableDoctors || 0}</td>
+                </tr>
+                <tr>
+                  <td>Pending Appointments</td>
+                  <td>{stats.pendingAppointments || 0}</td>
+                </tr>
+                <tr>
+                  <td>Completed Appointments</td>
+                  <td>{stats.completedAppointments || 0}</td>
+                </tr>
+                <tr>
+                  <td>Cancelled Appointments</td>
+                  <td>{stats.cancelledAppointments || 0}</td>
+                </tr>
+                <tr>
+                  <td>Total Appointments</td>
+                  <td>{stats.totalAppointments || 0}</td>
                 </tr>
               </tbody>
             </table>
           </div>
         </section>
-
       </main>
     </div>
   );

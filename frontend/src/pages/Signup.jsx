@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { publicFetch } from "../config/api";
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -26,24 +27,14 @@ export default function Signup() {
     }
 
     try {
-      const response = await fetch("http://localhost:5000/api/auth/register", {
+      await publicFetch("/auth/register", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify(formData),
       });
-
-      if (response.ok) {
-        alert("You have registered successfully");
-        navigate("/signin");
-      } else {
-        const errorMsg = await response.json();
-        alert(`Registration failed: ${errorMsg.message || JSON.stringify(errorMsg)}`);
-      }
+      alert("You have registered successfully");
+      navigate("/signin");
     } catch (error) {
-      console.error("Error during registration:", error);
-      alert("An error occurred during registration. Is the backend running?");
+      alert(error.message || "Registration failed");
     }
   };
 

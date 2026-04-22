@@ -66,6 +66,16 @@ const appointmentSchema = new mongoose.Schema(
       default: "Pending",
     },
 
+    paymentMethod: {
+      type: String,
+      default: "",
+    },
+
+    paymentReference: {
+      type: String,
+      default: "",
+    },
+
     remark: {
       type: String,
       default: "",

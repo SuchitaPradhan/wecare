@@ -51,6 +51,8 @@ const userSchema = new mongoose.Schema(
     address: { type: String, default: "" },
     allergies: { type: String, default: "" },
     emergencyContact: { type: String, default: "" },
+
+    lastLoginAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

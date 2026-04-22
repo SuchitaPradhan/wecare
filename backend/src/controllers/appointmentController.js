@@ -2,31 +2,74 @@ const Appointment = require("../models/Appointment");
 const User = require("../models/user");
 const Feedback = require("../models/Feedback");
 
-// ── CREATE APPOINTMENT (Patient) ──────────────────────────
+function getDefaultFee(type) {
+  return type === "online" ? 1200 : 700;
+}
+
 exports.createAppointment = async (req, res) => {
   try {
-    const { doctor, doctorName, specialty, date, time, type, notes, hospital } = req.body;
-
-    const patient = await User.findById(req.user.id);
-    if (!patient) return res.status(404).json({ message: "Patient not found" });
-
-    const appointment = await Appointment.create({
-      patient: req.user.id,
-      doctor: doctor || null,
-      patientName: patient.name,
-      patientEmail: patient.email,
-      doctorName: doctorName || "Any Available Doctor",
+    const {
+      doctor,
+      doctorName,
       specialty,
       date,
       time,
-      type: type || "offline",
+      type,
+      notes,
+      hospital,
+      fee,
+      paymentStatus,
+      paymentMethod,
+      paymentReference,
+    } = req.body;
+
+    const appointmentType = type || "offline";
+
+    const patient = await User.findById(req.user.id);
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    let selectedDoctor = null;
+    if (doctor) {
+      selectedDoctor = await User.findOne({ _id: doctor, role: "doctor" }).select(
+        "name specialty hospital"
+      );
+
+      if (!selectedDoctor) {
+        return res.status(404).json({ message: "Selected doctor not found" });
+      }
+    }
+
+    const appointment = await Appointment.create({
+      patient: req.user.id,
+      doctor: selectedDoctor?._id || null,
+      patientName: patient.name,
+      patientEmail: patient.email,
+      doctorName: selectedDoctor?.name || doctorName || "Any Available Doctor",
+      specialty: selectedDoctor?.specialty || specialty,
+      date,
+      time,
+      type: appointmentType,
       notes: notes || "",
-      hospital: hospital || "",
+      hospital: selectedDoctor?.hospital || hospital || "",
       status: "Upcoming",
+      fee:
+        Number.isFinite(Number(fee)) && Number(fee) > 0
+          ? Number(fee)
+          : getDefaultFee(appointmentType),
+      paymentStatus:
+        paymentStatus || (appointmentType === "online" ? "Paid" : "Pending"),
+      paymentMethod:
+        paymentMethod || (appointmentType === "online" ? "Online" : "In Person"),
+      paymentReference: paymentReference || "",
     });
 
     res.status(201).json({
-      message: "Appointment booked successfully",
+      message:
+        appointmentType === "online"
+          ? "Video consultation payment received and appointment booked successfully"
+          : "Appointment booked successfully",
       appointment,
     });
   } catch (error) {
@@ -34,7 +77,6 @@ exports.createAppointment = async (req, res) => {
   }
 };
 
-// ── GET MY APPOINTMENTS (Patient) ─────────────────────────
 exports.getMyAppointments = async (req, res) => {
   try {
     const appointments = await Appointment.find({ patient: req.user.id })
@@ -47,7 +89,6 @@ exports.getMyAppointments = async (req, res) => {
   }
 };
 
-// ── GET DOCTOR APPOINTMENTS (Doctor) ──────────────────────
 exports.getDoctorAppointments = async (req, res) => {
   try {
     const appointments = await Appointment.find({ doctor: req.user.id })
@@ -60,7 +101,6 @@ exports.getDoctorAppointments = async (req, res) => {
   }
 };
 
-// ── UPDATE APPOINTMENT STATUS (Doctor / Admin) ────────────
 exports.updateAppointmentStatus = async (req, res) => {
   try {
     const { status } = req.body;
@@ -69,21 +109,60 @@ exports.updateAppointmentStatus = async (req, res) => {
       return res.status(400).json({ message: "Invalid status value" });
     }
 
-    const appointment = await Appointment.findByIdAndUpdate(
-      req.params.id,
-      { status },
-      { new: true }
-    );
+    const appointment = await Appointment.findById(req.params.id);
 
-    if (!appointment) return res.status(404).json({ message: "Appointment not found" });
+    if (!appointment) {
+      return res.status(404).json({ message: "Appointment not found" });
+    }
 
-    res.json({ message: "Status updated", appointment });
+    if (!["doctor", "admin"].includes(req.user.role)) {
+      return res.status(403).json({ message: "Not authorized to update this appointment" });
+    }
+
+    if (
+      req.user.role === "doctor" &&
+      appointment.doctor &&
+      appointment.doctor.toString() !== req.user.id
+    ) {
+      return res.status(403).json({ message: "You can only update your own appointments" });
+    }
+
+    if (req.user.role === "doctor" && !appointment.doctor) {
+      appointment.doctor = req.user.id;
+    }
+
+    appointment.status = status;
+
+    if (!appointment.fee || appointment.fee <= 0) {
+      appointment.fee = getDefaultFee(appointment.type);
+    }
+
+    let message = "Appointment status updated successfully.";
+
+    if (status === "Confirmed") {
+      message = "The appointment is confirmed.";
+    }
+
+    if (status === "Completed") {
+      if (appointment.type === "offline" && appointment.paymentStatus === "Pending") {
+        appointment.paymentStatus = "Paid";
+        appointment.paymentMethod = appointment.paymentMethod || "In Person";
+      }
+      message = "Appointment completed successfully.";
+    }
+
+    if (status === "Cancelled") {
+      message = "Appointment cancelled successfully.";
+    }
+
+    await appointment.save();
+
+    res.json({ message, appointment });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// ── GET ALL APPOINTMENTS (Admin) ──────────────────────────
 exports.getAllAppointments = async (req, res) => {
   try {
     const appointments = await Appointment.find()
@@ -97,15 +176,15 @@ exports.getAllAppointments = async (req, res) => {
   }
 };
 
-// ── ADD REMARK (Doctor) ───────────────────────────────────
 exports.addRemark = async (req, res) => {
   try {
     const { remark } = req.body;
     const appointment = await Appointment.findById(req.params.id);
-    if (!appointment) return res.status(404).json({ message: "Appointment not found" });
+    if (!appointment) {
+      return res.status(404).json({ message: "Appointment not found" });
+    }
 
-    // Ensure only the assigned doctor can add a remark
-    if (appointment.doctor.toString() !== req.user.id) {
+    if (!appointment.doctor || appointment.doctor.toString() !== req.user.id) {
       return res.status(403).json({ message: "Not authorized to remark on this appointment" });
     }
 
@@ -118,14 +197,14 @@ exports.addRemark = async (req, res) => {
   }
 };
 
-// ── ADD FEEDBACK (Patient) ────────────────────────────────
 exports.addFeedback = async (req, res) => {
   try {
     const { rating, comment, title } = req.body;
     const appointment = await Appointment.findById(req.params.id);
-    if (!appointment) return res.status(404).json({ message: "Appointment not found" });
+    if (!appointment) {
+      return res.status(404).json({ message: "Appointment not found" });
+    }
 
-    // Validate patient
     if (appointment.patient.toString() !== req.user.id) {
       return res.status(403).json({ message: "Not authorized to feedback on this appointment" });
     }
