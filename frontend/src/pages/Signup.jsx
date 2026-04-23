@@ -16,6 +16,7 @@ export default function Signup() {
     e.preventDefault();
     const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/;
     const phoneRegex = /^[0-9]{10}$/;
+    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/; // Minimum 8 characters, at least one letter and one number
 
     if (!emailRegex.test(formData.email)) {
       alert("Invalid Email Format");
@@ -23,6 +24,10 @@ export default function Signup() {
     }
     if (!phoneRegex.test(formData.phone)) {
       alert("Invalid Phone Number (10 digits required)");
+      return;
+    }
+    if (!passwordRegex.test(formData.password)) {
+      alert("Invalid Password (Minimum 8 char, at least 1 letter and 1 number)");
       return;
     }
 
