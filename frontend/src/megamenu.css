@@ -12,7 +12,7 @@
 
 /* Mega Menu Container */
 .mega-menu-container {
-  position: absolute;
+  position: fixed;
   top: 90px;
   left: 0;
   width: 100%;
@@ -421,11 +421,11 @@
   background: #fff;
   padding: 30px;
   border-radius: 16px;
-  /* consistent curve */
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
   transition: 0.3s;
   border: 1px solid rgba(0, 0, 0, 0.05);
   text-align: center;
+  overflow: visible;
 }
 
 #home-page .feature-card:hover {
@@ -437,6 +437,7 @@
 #home-page .feature-icon {
   font-size: 3rem;
   margin-bottom: 20px;
+  justify-content: flex-start;
 }
 
 #home-page .feature-title {
