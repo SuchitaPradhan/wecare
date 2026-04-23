@@ -1906,6 +1906,27 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--color-text-muted);
 }
 
+.auth-message {
+  border-radius: var(--radius-lg);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  line-height: 1.45;
+  margin-bottom: var(--space-lg);
+  padding: 12px 14px;
+}
+
+.auth-message-success {
+  background: rgba(170, 217, 187, 0.28);
+  border: 1px solid rgba(91, 153, 113, 0.28);
+  color: #3d7650;
+}
+
+.auth-message-error {
+  background: rgba(255, 118, 117, 0.12);
+  border: 1px solid rgba(255, 118, 117, 0.28);
+  color: #b94b4a;
+}
+
 .auth-form .btn {
   width: 100%;
   margin-top: var(--space-md);

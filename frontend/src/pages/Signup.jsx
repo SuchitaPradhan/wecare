@@ -68,7 +68,7 @@ export default function Signup() {
       <div className="auth-split-right">
         <div className="auth-container">
           <div className="auth-header">
-            <Link to="/" className="auth-logo">← WECARE</Link>
+            <Link to="/" className="auth-logo">WECARE</Link>
             <h1 className="auth-title">Create Account</h1>
             <p className="auth-subtitle">Join WECARE and take control of your health</p>
           </div>

@@ -9,37 +9,54 @@ export default function ForgotPassword() {
   const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState({ type: "", text: "" });
 
   const handleSendOtp = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setMessage({ type: "", text: "" });
     try {
+      const normalizedEmail = email.trim().toLowerCase();
       const data = await publicFetch("/auth/forgot-password", {
         method: "POST",
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email: normalizedEmail }),
       });
-      alert(data.message);
+      setEmail(normalizedEmail);
+      setMessage({
+        type: "success",
+        text: data?.message || "OTP generated. Check the backend terminal for the code.",
+      });
       setStep(2);
     } catch (error) {
-      alert(error.message);
+      setMessage({
+        type: "error",
+        text: error.message || "Unable to send OTP right now.",
+      });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleResetPassword = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setMessage({ type: "", text: "" });
     try {
+      const normalizedEmail = email.trim().toLowerCase();
       await publicFetch("/auth/reset-password", {
         method: "POST",
-        body: JSON.stringify({ email, otp, newPassword }),
+        body: JSON.stringify({ email: normalizedEmail, otp: otp.trim(), newPassword }),
       });
       alert("Password reset successfully. Please login.");
       navigate("/signin");
     } catch (error) {
-      alert(error.message);
+      setMessage({
+        type: "error",
+        text: error.message || "Unable to reset password right now.",
+      });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -88,6 +105,15 @@ export default function ForgotPassword() {
               }} />
             ))}
           </div>
+
+          {message.text && (
+            <div
+              className={`auth-message auth-message-${message.type}`}
+              role={message.type === "error" ? "alert" : "status"}
+            >
+              {message.text}
+            </div>
+          )}
 
           {step === 1 ? (
             <form className="auth-form" onSubmit={handleSendOtp}>

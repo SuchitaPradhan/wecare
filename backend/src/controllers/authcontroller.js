@@ -1,7 +1,7 @@
-const User    = require("../models/user");
-const OTP     = require("../models/OTP");
-const bcrypt  = require("bcryptjs");
-const jwt     = require("jsonwebtoken");
+const User = require("../models/user");
+const OTP = require("../models/OTP");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
 // ── REGISTER ──────────────────────────────────────────────
 exports.register = async (req, res) => {
@@ -32,10 +32,10 @@ exports.register = async (req, res) => {
     res.status(201).json({
       message: "Registered successfully",
       user: {
-        id:    user._id,
-        name:  user.name,
+        id: user._id,
+        name: user.name,
         email: user.email,
-        role:  user.role,
+        role: user.role,
         phone: user.phone,
       },
     });
@@ -74,10 +74,10 @@ exports.login = async (req, res) => {
       message: "Login successful",
       token,
       user: {
-        id:    user._id,
-        name:  user.name,
+        id: user._id,
+        name: user.name,
         email: user.email,
-        role:  user.role,
+        role: user.role,
         phone: user.phone,
         lastLoginAt: user.lastLoginAt,
       },
@@ -126,30 +126,29 @@ exports.updateProfile = async (req, res) => {
 // ── FORGOT PASSWORD (Generate OTP) ────────────────────────
 exports.forgotPassword = async (req, res) => {
   try {
-    const { email } = req.body;
+    const email = req.body.email?.toLowerCase().trim();
+
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
     const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) {
+      return res.status(404).json({ message: "No account found with that email" });
+    }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
 
-    // ── Big visible terminal log ──────────────────────────
-    console.log(`\n`);
-    console.log(`╔══════════════════════════════════════════╗`);
-    console.log(`║         🔐  OTP GENERATED (DEV)          ║`);
-    console.log(`╠══════════════════════════════════════════╣`);
-    console.log(`║  Email : ${email.padEnd(32)}║`);
-    console.log(`║  OTP   : ${otp.padEnd(32)}║`);
-    console.log(`╚══════════════════════════════════════════╝`);
-    console.log(`\n`);
+    
+    
+    console.log(`Email: ${email}`);
+    console.log(`Code : ${otp}`);
+
 
     await OTP.deleteMany({ email }); // Remove old OTPs for this email
     await OTP.create({ email, otp });
 
-    // Return OTP in response for development so the browser alert shows it
-    res.json({
-      message: `OTP generated! Your OTP is: ${otp}  (also printed in the backend terminal)`,
-      otp,   // remove this line before going to production
-    });
+    res.json({ message: "OTP generated. Check the backend terminal for the code." });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -158,7 +157,12 @@ exports.forgotPassword = async (req, res) => {
 // ── RESET PASSWORD (Verify OTP) ───────────────────────────
 exports.resetPassword = async (req, res) => {
   try {
-    const { email, otp, newPassword } = req.body;
+    const email = req.body.email?.toLowerCase().trim();
+    const { otp, newPassword } = req.body;
+
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ message: "Email, OTP, and new password are required" });
+    }
 
     const validOtp = await OTP.findOne({ email, otp });
     if (!validOtp) return res.status(400).json({ message: "Invalid or expired OTP" });
