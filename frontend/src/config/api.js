@@ -1,7 +1,15 @@
-const configuredBase = import.meta.env.VITE_API_BASE || "http://localhost:5000/api";
+const configuredBase =
+  import.meta.env.VITE_API_BASE ||
+  import.meta.env.VITE_BASE ||
+  import.meta.env.VITE__BASE ||
+  "http://localhost:5000/api";
 
-export const API_BASE = configuredBase.replace(/\/$/, "");
-export const SERVER_BASE = API_BASE.replace(/\/api$/, "");
+const normalizedBase = configuredBase.replace(/\/$/, "");
+
+export const _BASE = normalizedBase.endsWith("/api")
+  ? normalizedBase
+  : `${normalizedBase}/api`;
+export const SERVER_BASE = _BASE.replace(/\/api$/, "");
 
 async function request(url, options = {}) {
   const headers = { ...(options.headers || {}) };
@@ -17,7 +25,17 @@ async function request(url, options = {}) {
   });
 
   const text = await response.text();
-  const data = text ? JSON.parse(text) : null;
+  let data = null;
+
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch (error) {
+    if (!response.ok) {
+      throw new Error("Server returned an invalid response. Check API base URL and backend server.");
+    }
+
+    throw new Error("Received non-JSON response from server.");
+  }
 
   if (!response.ok) {
     throw new Error(data?.message || "Something went wrong");
@@ -27,13 +45,13 @@ async function request(url, options = {}) {
 }
 
 export function publicFetch(endpoint, options = {}) {
-  return request(`${API_BASE}${endpoint}`, options);
+  return request(`${_BASE}${endpoint}`, options);
 }
 
 export function apiFetch(endpoint, options = {}) {
   const token = localStorage.getItem("token");
 
-  return request(`${API_BASE}${endpoint}`, {
+  return request(`${_BASE}${endpoint}`, {
     ...options,
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -41,6 +59,8 @@ export function apiFetch(endpoint, options = {}) {
     },
   });
 }
+
+export const Fetch = apiFetch;
 
 export function buildFileUrl(fileUrl) {
   if (!fileUrl) return "";

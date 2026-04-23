@@ -2,7 +2,7 @@
    ADMIN DASHBOARD - Themed to match Home Page
    Uses the same warm cream/blue palette and fonts
    ===================================================== */
-@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googles.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600;700&display=swap');
 
 :root {
   --adm-primary: #7ea4be;
