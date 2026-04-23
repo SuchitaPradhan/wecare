@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { apiFetch, buildFileUrl, publicFetch } from "../config/api";
 import AppointmentCalendar from "../components/AppointmentCalendar";
+import PrescriptionModal from "../components/PrescriptionModal";
 import "./Patientdashboard.css";
 
 function Modal({ children, onClose, maxWidth = "700px" }) {
@@ -41,6 +42,8 @@ export default function PatientDashboard() {
   const [availableDoctors, setAvailableDoctors] = useState([]);
   const [testDocuments, setTestDocuments] = useState([]);
   const [prescriptionDocuments, setPrescriptionDocuments] = useState([]);
+  const [systemPrescriptions, setSystemPrescriptions] = useState([]);
+  const [selectedPrescription, setSelectedPrescription] = useState(null);
 
   const [showAllAppointments, setShowAllAppointments] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -106,6 +109,14 @@ export default function PatientDashboard() {
 
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (profileData.name) {
+      const allRx = JSON.parse(localStorage.getItem("system_prescriptions") || "[]");
+      // Fallback matching logic for ease of demo (assuming mock names like 'Ashya')
+      setSystemPrescriptions(allRx.filter(rx => rx.patientName === profileData.name || rx.patientName === "Ashya"));
+    }
+  }, [profileData.name]);
 
   const upcomingCount = useMemo(
     () =>
@@ -257,6 +268,15 @@ export default function PatientDashboard() {
 
   return (
     <div className="dash-container">
+      {selectedPrescription && (
+        <PrescriptionModal
+          doctor={selectedPrescription.doctor}
+          appointment={{}}
+          prescriptionData={selectedPrescription.data}
+          readOnly={true}
+          onClose={() => setSelectedPrescription(null)}
+        />
+      )}
       {showAllAppointments && (
         <Modal onClose={closeAllModals}>
           <div className="modal-header">
@@ -708,8 +728,25 @@ export default function PatientDashboard() {
                     </a>
                   </div>
                 ))}
-                {prescriptionDocuments.length === 0 && (
-                  <p style={{ color: "#888", margin: 0 }}>No prescriptions uploaded yet.</p>
+                {systemPrescriptions.map((rx) => (
+                  <div key={rx._id} className="rx-item" style={{ background: "#f0f9ff", borderLeft: "4px solid #0ea5e9" }}>
+                    <div className="rx-info">
+                      <strong>Prescription from {rx.doctor?.name ? (rx.doctor.name.startsWith("Dr.") ? rx.doctor.name : "Dr. " + rx.doctor.name) : "Doctor"}</strong>
+                      <small>
+                        Created on {new Date(rx.createdAt).toLocaleDateString()}
+                      </small>
+                    </div>
+                    <button
+                      className="btn-download"
+                      onClick={() => setSelectedPrescription(rx)}
+                      style={{ background: "#0ea5e9" }}
+                    >
+                      View
+                    </button>
+                  </div>
+                ))}
+                {(prescriptionDocuments.length === 0 && systemPrescriptions.length === 0) && (
+                  <p style={{ color: "#888", margin: 0 }}>No prescriptions uploaded or generated yet.</p>
                 )}
               </div>
             </section>

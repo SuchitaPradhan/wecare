@@ -78,6 +78,7 @@ export default function Home() {
   const [currentUser, setCurrentUser] = useState(null);
   const [discoverOpen, setDiscoverOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
+  const [showMapModal, setShowMapModal] = useState(false);
   const [doctors, setDoctors] = useState([]);
   const [summary, setSummary] = useState({
     totalDoctors: 0,
@@ -499,17 +500,88 @@ export default function Home() {
 
         <section className="cta-section">
           <div className="container">
-            <div className="cta-content">
-              <h2 className="cta-title">Ready to Get Started?</h2>
-              <p className="cta-text">
-                Create an account and start booking with specialists today.
-              </p>
-              <Link to="/signup" className="btn btn-primary btn-lg">
-                Create Free Account
-              </Link>
+            <div className="cta-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "40px", alignItems: "center" }}>
+              <div className="cta-content" style={{ textAlign: "left", margin: 0, paddingLeft: "10%" }}>
+                <h2 className="cta-title">Ready to Get Started?</h2>
+                <p className="cta-text">
+                  Create an account and start booking with specialists today.
+                </p>
+                <Link to="/signup" className="btn btn-primary btn-lg">
+                  Create Free Account
+                </Link>
+              </div>
+              <div 
+                className="cta-map-preview" 
+                style={{ 
+                  position: "relative",
+                  borderRadius: "16px", 
+                  overflow: "hidden",
+                  cursor: "pointer", 
+                  transition: "all 0.3s ease",
+                  border: "4px solid rgba(255,255,255,0.3)",
+                  height: "250px",
+                  marginRight: "10%",
+                  boxShadow: "0 10px 30px rgba(0,0,0,0.15)"
+                }} 
+                onClick={() => setShowMapModal(true)}
+                onMouseOver={(e) => { e.currentTarget.style.transform = "translateY(-5px)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.9)"; }}
+                onMouseOut={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)"; }}
+              >
+                <iframe 
+                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d119743.53374950796!2d85.7480521!3d20.2960587!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3a1909d2d5170aa5%3A0xfc580e2b68b33fa8!2sBhubaneswar%2C%20Odisha!5e0!3m2!1sen!2sin!4v1700000000000!5m2!1sen!2sin" 
+                  width="100%" 
+                  height="100%" 
+                  style={{ border: 0, pointerEvents: "none" }} 
+                  allowFullScreen="" 
+                  loading="lazy" 
+                  referrerPolicy="no-referrer-when-downgrade"
+                  title="Hospitals Map Preview"
+                ></iframe>
+              </div>
             </div>
           </div>
         </section>
+
+        {showMapModal && (
+          <div 
+            style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.8)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}
+            onClick={() => setShowMapModal(false)}
+          >
+            <div 
+              style={{ background: "#fff", width: "100%", maxWidth: "800px", borderRadius: "20px", padding: "25px", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)", position: "relative" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button 
+                onClick={() => setShowMapModal(false)} 
+                style={{ position: "absolute", top: "20px", right: "20px", background: "#f1f5f9", border: "none", width: "32px", height: "32px", borderRadius: "50%", cursor: "pointer", fontSize: "18px", fontWeight: "bold", color: "#475569", transition: "all 0.2s" }}
+                onMouseOver={(e) => e.currentTarget.style.background = "#e2e8f0"}
+                onMouseOut={(e) => e.currentTarget.style.background = "#f1f5f9"}
+              >×</button>
+              <h2 style={{ margin: "0 0 20px", color: "#0f172a", fontSize: "24px" }}>Our Hospital Network</h2>
+              
+              <div style={{ position: "relative", width: "100%", height: "400px", background: "#e2e8f0", borderRadius: "12px", overflow: "hidden", marginBottom: "20px" }}>
+                <iframe 
+                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d119743.53374950796!2d85.7480521!3d20.2960587!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3a1909d2d5170aa5%3A0xfc580e2b68b33fa8!2sBhubaneswar%2C%20Odisha!5e0!3m2!1sen!2sin!4v1700000000000!5m2!1sen!2sin" 
+                  width="100%" 
+                  height="100%" 
+                  style={{ border: 0 }} 
+                  allowFullScreen="" 
+                  loading="lazy" 
+                  referrerPolicy="no-referrer-when-downgrade"
+                  title="Hospitals Map"
+                ></iframe>
+              </div>
+              
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px" }}>
+                 {["AIIMS Bhubaneswar", "SCB Medical College, Cuttack", "SUM Hospital, BBSR", "AMRI Hospital, BBSR", "KIMS, BBSR", "Care Hospitals"].map(hosp => (
+                    <div key={hosp} style={{ padding: "12px", background: "#f8fafc", borderRadius: "10px", border: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: "10px", color: "#334155", fontWeight: "600", fontSize: "14px" }}>
+                      <span style={{ fontSize: "18px" }}>🏥</span> {hosp}
+                    </div>
+                 ))}
+              </div>
+            </div>
+          </div>
+        )}
       </main>
 
       <footer className="footer" id="footer">

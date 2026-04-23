@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { apiFetch } from "../config/api";
 import AppointmentCalendar from "../components/AppointmentCalendar";
+import PrescriptionModal from "../components/PrescriptionModal";
 import "./DoctorDashboard.css";
 
 function Modal({ children, onClose }) {
@@ -129,6 +130,7 @@ const DoctorDashboard = () => {
   });
   const [showProfile, setShowProfile] = useState(false);
   const [currentTime, setCurrentTime] = useState("");
+  const [selectedPrescriptionApt, setSelectedPrescriptionApt] = useState(null);
 
   const loadDashboard = async () => {
     try {
@@ -209,6 +211,13 @@ const DoctorDashboard = () => {
           onSave={(doctor) =>
             setDashboard((current) => ({ ...current, doctor }))
           }
+        />
+      )}
+      {selectedPrescriptionApt && (
+        <PrescriptionModal
+          doctor={dashboard.doctor}
+          appointment={selectedPrescriptionApt}
+          onClose={() => setSelectedPrescriptionApt(null)}
         />
       )}
 
@@ -325,6 +334,14 @@ const DoctorDashboard = () => {
                        patient.status === "Pending" ? { background: "#fef3c7", color: "#b45309" } :
                        { background: "#f1f5f9", color: "#475569" })
                   }}>{patient.status}</span>
+                  {patient.status === "Confirmed" && (
+                    <button
+                      style={{ ...styles.secondaryButton, padding: "4px 10px", fontSize: "12px", background: "#f8fafc", border: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: "5px" }}
+                      onClick={() => setSelectedPrescriptionApt({ patientName: patient.name, date: new Date().toISOString().split("T")[0] })}
+                    >
+                      📝 Prescribe
+                    </button>
+                  )}
                 </div>
               ))}
               {dashboard.followUpPatients.length === 0 && (
@@ -386,6 +403,14 @@ const DoctorDashboard = () => {
                     <div style={styles.subtitle}>{appointment.notes || "No notes added."}</div>
                   </div>
                   <div style={{ display: "grid", gap: 8 }}>
+                    {appointment.status === "Confirmed" && (
+                      <button
+                        style={{ ...styles.primaryButton, background: "#0ea5e9", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", gap: "5px" }}
+                        onClick={() => setSelectedPrescriptionApt(appointment)}
+                      >
+                        📝 Prescribe
+                      </button>
+                    )}
                     {!isConfirmed ? (
                       <button
                         style={styles.primaryButton}
